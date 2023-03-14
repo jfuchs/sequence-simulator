@@ -1,91 +1,122 @@
-import Image from 'next/image'
-import { Inter } from 'next/font/google'
-import styles from './page.module.css'
+'use client'
 
-const inter = Inter({ subsets: ['latin'] })
+import { simulate } from '@/sequence'
+import { exampleModel } from '@/example'
+import { useMemo, useRef, useState } from 'react'
+import { TraceGraph } from './TraceGraph'
+import domtoimage from 'dom-to-image'
+import { saveAs } from 'file-saver'
+
+export type TimeMode = 'linear' | 'ordinal'
+
+const availableModels = [
+  {
+    name: 'exampleModel',
+    model: exampleModel,
+  },
+]
 
 export default function Home() {
+  const [availableModel, setAvailableModel] = useState(availableModels[0])
+  const trace = useMemo(() => simulate(availableModel.model), [availableModel])
+
+  const [timeMode, setTimeMode] = useState<TimeMode>('ordinal')
+  const [scale, setScale] = useState(1)
+
+  const svgRef = useRef<SVGSVGElement>(null)
+  const onTimeModeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setTimeMode(e.target.value as TimeMode)
+  }
+
   return (
-    <main className={styles.main}>
-      <div className={styles.description}>
-        <p>
-          Get started by editing&nbsp;
-          <code className={styles.code}>src/app/page.tsx</code>
-        </p>
-        <div>
-          <a
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <main>
+      <div className="p-2 bg-gray-200 flex flex-row justify-start gap-2">
+        {/* Dropdown to pick a trace: */}
+        <div className="flex flex-row items-stretch border-2 border-white rounded gap-2 p-2">
+          <strong>Model:</strong>
+          <select
+            onChange={(e) => {
+              const availableModel = availableModels.find(
+                (t) => t.name === e.target.value,
+              )!
+              setAvailableModel(availableModel)
+            }}
           >
-            By{' '}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className={styles.vercelLogo}
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
+            {availableModels.map((availableModel) => (
+              <option key={availableModel.name} value={availableModel.name}>
+                {availableModel.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        {/* UI to toggle time mode: */}
+        <div className="flex flex-row items-stretch border-2 border-white rounded gap-2 p-2">
+          <strong>Timeline:</strong>
+          <label className="border-r-2">
+            <input
+              onChange={onTimeModeChange}
+              type="radio"
+              name="timeMode"
+              value="linear"
+              checked={timeMode === 'linear'}
+            />{' '}
+            Linear
+          </label>
+          <label className="border-r-2">
+            <input
+              onChange={onTimeModeChange}
+              type="radio"
+              name="timeMode"
+              value="ordinal"
+              checked={timeMode === 'ordinal'}
+            />{' '}
+            Ordinal
+          </label>
+        </div>
+        <div className="flex flex-row items-stretch border-2 border-white rounded gap-2 p-2">
+          <strong>Scale:</strong>
+          <input
+            type="range"
+            min="0.1"
+            max="10"
+            step="0.1"
+            value={scale}
+            onChange={(e) => setScale(parseFloat(e.target.value))}
+          />
+          <input
+            type="number"
+            min="0.1"
+            max="10"
+            value={scale}
+            onChange={(e) => setScale(parseFloat(e.target.value))}
+            className="px-2"
+          />
+        </div>
+        <div className="flex flex-row items-stretch border-2 border-white rounded gap-2 p-2">
+          <button
+            value="Download"
+            onClick={() => {
+              // TODO
+              domtoimage
+                .toBlob(document.querySelector('figure')!)
+                .then((blob) => {
+                  console.log('>>> blob', blob)
+                  saveAs(blob, 'trace.png')
+                })
+            }}
+            // disabled={!svgRef.current}
+          >
+            💾 Download
+          </button>
         </div>
       </div>
-
-      <div className={styles.center}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-        <div className={styles.thirteen}>
-          <Image src="/thirteen.svg" alt="13" width={40} height={31} priority />
-        </div>
-      </div>
-
-      <div className={styles.grid}>
-        <a
-          href="https://beta.nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={inter.className}>
-            Docs <span>-&gt;</span>
-          </h2>
-          <p className={inter.className}>
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={inter.className}>
-            Templates <span>-&gt;</span>
-          </h2>
-          <p className={inter.className}>Explore the Next.js 13 playground.</p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={inter.className}>
-            Deploy <span>-&gt;</span>
-          </h2>
-          <p className={inter.className}>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
+      <TraceGraph
+        ref={svgRef}
+        trace={trace}
+        timeMode={timeMode}
+        scale={scale}
+        setScale={setScale}
+      />
     </main>
   )
 }
